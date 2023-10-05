@@ -87,9 +87,35 @@ def summary(
         device: torch.device = None,
         max_length: int = 1024,
         verbose: bool = False,
-
         prompt: str = None,
     ) -> str:
+    """Summarize doctor and patient conversation using prompt engineered llama 2 model.
+    The system prompt is the prompt that is given to the model to generate the response.
+    The user prompt is the prompt that is given to the model to generate the response. Doctor and patient prompt is combined to make the user prompt as the model is trained to generate response based on the user prompt.
+    The system prompt is the prompt that is given to the model to generate the response. The user prompt is the prompt that is given to the model to generate the response. Doctor and patient prompt is combined to make the user prompt as the model is trained to generate response based on the user prompt.
+    Args:
+        doctor_text (str): Doctor's conversation.
+        patient_text (str): Patient's conversation.
+        system_prompt (str): System prompt that is given to the model to generate the response.
+        device (torch.device): Device to run the model on.
+        max_length (int): Maximum length of the generated response.
+        verbose (bool): Whether to print the log or not.
+        prompt (str): Prompt that is given to the model to generate the response.
+        
+    Returns:
+        str: Generated response.
+        
+    Raises:
+        ValueError: If doctor_text or patient_text is not provided.
+        
+    Examples:
+        >>> import llm_summarize as llm
+        >>> llm.summary(
+            ...     doctor_text="안녕하세요. 의사 입니다.",
+            ...     patient_text="안녕하세요. 환자 입니다.",
+            ...     system_prompt="이 둘이 대화를 설명해주세요.",
+            ...     verbose=True,
+            ... )"""
     if doctor_text is None or patient_text is None: raise ValueError(f"doctor_prompt and patient_prompt must be provided, but doctor prompt is {type(doctor_text)} and patient prompt is {type(patient_text)}")
     if system_prompt is None:
         system_prompt = f"""
