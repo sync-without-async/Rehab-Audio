@@ -7,7 +7,7 @@ import torch
 
 import logging
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+logging.basicConfig(level=logging.INFO, format='[DSR_MODULE]%(asctime)s %(levelname)s %(message)s')
 
 def _check_parallel_device_list():
     if not torch.cuda.is_available():
