@@ -103,6 +103,7 @@ def speech_to_text(
         sampling_rate=audio_sample_rate,
         return_tensors="pt"
     ).input_values.to(device)
+    input_values = input_values.reshape(1, -1)
 
     if verbose: logging.info("Inference...")
     with torch.no_grad():

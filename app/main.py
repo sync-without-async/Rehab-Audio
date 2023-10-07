@@ -5,8 +5,14 @@ from fastapi.exceptions import *
 
 from fastapi.testclient import TestClient
 
-from connector import database_connector, database_query
+from connector import *
 
+import speech_to_text as stt
+import denoising as den
+import summary
+
+import polars as pl
+import requests
 import logging
 
 app = FastAPI()
@@ -32,31 +38,78 @@ async def http_exception_handler(request, exc): return PlainTextResponse(str(exc
 def read_root():
     return {"Hello": "World"}
 
-@app.get("/getSummary")
-def getSummary():
-    # TODO: get audio from database
+@app.post("/getSummary")
+def getSummary(room_number: int = Form(...)):
     connector, cursor = database_connector(database_secret_path="secret_key.json")
-    table_name = "video"
+    table_name = "audio"
     query = f"SELECT * FROM {table_name}"
-    result = database_query(connector, cursor, query, verbose=False)
+    result = database_select_using_pk(
+        table=pl.DataFrame(database_query(connector, cursor, query, verbose=False)),
+        pk=room_number,
+        verbose=True
+    )
+    result = result.to_numpy().tolist()[0]
 
-    return result
+    doctor_audio_url, patient_audio_url = result[2], result[5]
+    doctor_audio = requests.get(doctor_audio_url).content
+    patient_audio = requests.get(patient_audio_url).content
 
-    # TODO: denoising
+    with open("doctor.wav", "wb") as f:     f.write(doctor_audio)
+    with open("patient.wav", "wb") as f:    f.write(patient_audio)
+    
+    doctor_audio, doc_fs = den.load_audio("doctor.wav")
+    patient_audio, pat_fs = den.load_audio("patient.wav")
 
-    # TODO: ASR, STT
+    logging.info("[DSR_MODULE] Denoising audio...")
+    doctor_audio, doc_sr = den.denoising(
+        audio=doctor_audio,
+        sample_rate=doc_fs,
+        device="cpu",
+        verbose=True
+    )
+
+    patient_audio, pat_sr = den.denoising(
+        audio=patient_audio,
+        sample_rate=pat_fs,
+        device="cpu",
+        verbose=True
+    )
+
+    logging.info("[DSR_MODULE] Transcribing audio...") 
+    doctor_transcript = stt.speech_to_text(
+        processor_pretrained_argument="kresnik/wav2vec2-large-xlsr-korean",
+        audio=doctor_audio,
+        audio_sample_rate=doc_sr,
+        device="cpu",
+        verbose=True
+    )
+
+    patient_transcript = stt.speech_to_text(
+        processor_pretrained_argument="kresnik/wav2vec2-large-xlsr-korean",
+        audio=patient_audio,
+        audio_sample_rate=pat_sr,
+        device="cpu",
+        verbose=True
+    )
 
     # TODO: Get summary
+    summarized = summary.summarize(
+        doctor_content=doctor_transcript,
+        patient_content=patient_transcript,
+        verbose=True,
+    )
 
-    # TODO: Insert summary to database
+    connector, cursor = database_connector(database_secret_path="secret_key.json")
+    table_name, table_column = "audio", "summary"
 
-    # TODO: Return end flag
+    db_summary_flag = insert_summary_database(
+        connector=connector,
+        cursor=cursor,
+        target_table_name=table_name,
+        target_columns=table_column,
+        target_values=summarized,
+        target_room_number=room_number,
+        verbose=True
+    )
 
-def test_read_main():
-    response = client.get("/getSummary")
-    assert response.status_code == 200
-    print(response.json())
-
-if __name__ == "__main__":
-    test_read_main()
-
+    return db_summary_flag
