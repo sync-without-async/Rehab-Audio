@@ -96,6 +96,7 @@ def getSummary(room_number: int = Form(...)):
     summarized = summary.summarize(
         doctor_content=doctor_transcript,
         patient_content=patient_transcript,
+        max_tokens=1024,
         verbose=True,
     )
 
@@ -109,7 +110,7 @@ def getSummary(room_number: int = Form(...)):
         target_columns=table_column,
         target_values=summarized,
         target_room_number=room_number,
-        verbose=True
+        verbose=True,
     )
 
     return db_summary_flag
