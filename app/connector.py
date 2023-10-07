@@ -84,6 +84,11 @@ def database_select_using_pk(
         table[:, 0] == pk
     )
     if verbose: logging.info(f"Selected row using primary key.")
+
+    if len(result) == 0:
+        logging.error(f"No row found using primary key: {pk}")
+        return None
+
     return result
 
 def insert_summary_database(
@@ -142,7 +147,6 @@ def insert_summary_database(
     query_template = f"UPDATE {target_table_name} SET {target_columns} = %s WHERE ano = %s;"
     if verbose: logging.info(f"Executing query: {query_template}")
 
-    print(target_values, target_room_number)
     if verbose: logging.info(f"Inserting summary to database...")
     try:
         cursor.execute(query_template, (target_values, target_room_number))

@@ -38,16 +38,20 @@ async def http_exception_handler(request, exc): return PlainTextResponse(str(exc
 def read_root():
     return {"Hello": "World"}
 
-@app.post("/getSummary")
-def getSummary(room_number: int = Form(...)):
+@app.get("/getSummary")
+def getSummary(ano: int):
     connector, cursor = database_connector(database_secret_path="secret_key.json")
     table_name = "audio"
     query = f"SELECT * FROM {table_name}"
     result = database_select_using_pk(
         table=pl.DataFrame(database_query(connector, cursor, query, verbose=False)),
-        pk=room_number,
+        pk=ano,
         verbose=True
     )
+
+    # TODO: Return flag to backend (Boolean, True if success, False if fail)
+
+    if result is None: return {"error": "No audio found."}
     result = result.to_numpy().tolist()[0]
 
     doctor_audio_url, patient_audio_url = result[2], result[5]
@@ -109,7 +113,7 @@ def getSummary(room_number: int = Form(...)):
         target_table_name=table_name,
         target_columns=table_column,
         target_values=summarized,
-        target_room_number=room_number,
+        target_room_number=ano,
         verbose=True,
     )
 
