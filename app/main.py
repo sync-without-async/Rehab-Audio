@@ -7,6 +7,9 @@ from fastapi.testclient import TestClient
 
 from connector import *
 
+import threading
+import time
+
 import speech_to_text as stt
 import denoising as den
 import summary
@@ -45,11 +48,13 @@ def getSummary(ano: int):
     connector, cursor = database_connector(database_secret_path="secret_key.json")
     table_name = "audio"
     query = f"SELECT * FROM {table_name}"
+
     result = database_select_using_pk(
         table=pl.DataFrame(database_query(connector, cursor, query, verbose=False)),
         pk=ano,
         verbose=True
     )
+    print(result)
 
     result = result.to_numpy().tolist()[0]
 
@@ -63,13 +68,10 @@ def getSummary(ano: int):
         doctor_audio, doc_fs = den.load_audio("doctor.wav")
         patient_audio, pat_fs = den.load_audio("patient.wav")
 
-        asyncio.run(_do_summary(
-            ano=ano,
-            doctor_audio=doctor_audio,
-            patient_audio=patient_audio,
-            doc_fs=doc_fs,
-            pat_fs=pat_fs,
-        ))
+        threading.Thread(
+            target=asyncio.run,
+            args=(_do_summary(ano, doctor_audio, patient_audio, doc_fs, pat_fs),)
+        ).start()
 
         return True
 
