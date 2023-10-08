@@ -14,6 +14,8 @@ import summary
 import polars as pl
 import requests
 import logging
+import asyncio
+import torch
 
 app = FastAPI()
 app.add_middleware(
@@ -49,21 +51,39 @@ def getSummary(ano: int):
         verbose=True
     )
 
-    # TODO: Return flag to backend (Boolean, True if success, False if fail)
-
-    if result is None: return {"error": "No audio found."}
     result = result.to_numpy().tolist()[0]
 
-    doctor_audio_url, patient_audio_url = result[2], result[5]
-    doctor_audio = requests.get(doctor_audio_url).content
-    patient_audio = requests.get(patient_audio_url).content
+    try:
+        doctor_audio_url, patient_audio_url = result[2], result[5]
+        doctor_audio = requests.get(doctor_audio_url).content
+        patient_audio = requests.get(patient_audio_url).content
 
-    with open("doctor.wav", "wb") as f:     f.write(doctor_audio)
-    with open("patient.wav", "wb") as f:    f.write(patient_audio)
-    
-    doctor_audio, doc_fs = den.load_audio("doctor.wav")
-    patient_audio, pat_fs = den.load_audio("patient.wav")
+        with open("doctor.wav", "wb") as f:     f.write(doctor_audio)
+        with open("patient.wav", "wb") as f:    f.write(patient_audio)
+        doctor_audio, doc_fs = den.load_audio("doctor.wav")
+        patient_audio, pat_fs = den.load_audio("patient.wav")
 
+        asyncio.run(_do_summary(
+            ano=ano,
+            doctor_audio=doctor_audio,
+            patient_audio=patient_audio,
+            doc_fs=doc_fs,
+            pat_fs=pat_fs,
+        ))
+
+        return True
+
+    except Exception as e:
+        logging.error(e)
+        return False
+
+async def _do_summary(
+        ano: int, 
+        doctor_audio: torch.Tensor,
+        patient_audio: torch.Tensor,
+        doc_fs: int,
+        pat_fs: int,
+    ):
     logging.info("[DSR_MODULE] Denoising audio...")
     doctor_audio, doc_sr = den.denoising(
         audio=doctor_audio,
@@ -107,7 +127,7 @@ def getSummary(ano: int):
     connector, cursor = database_connector(database_secret_path="secret_key.json")
     table_name, table_column = "audio", "summary"
 
-    db_summary_flag = insert_summary_database(
+    _ = insert_summary_database(
         connector=connector,
         cursor=cursor,
         target_table_name=table_name,
@@ -116,5 +136,3 @@ def getSummary(ano: int):
         target_room_number=ano,
         verbose=True,
     )
-
-    return db_summary_flag
